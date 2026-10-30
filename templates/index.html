@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Local Stumble</title>
+</head>
+<body>
+<main>
+    <h1>Local Stumble</h1>
+    <p>Find something worth reading.</p>
+
+    <form id="stumble-form">
+        <label for="interest">What interests you?</label>
+        <input id="interest" name="interest" type="text"
+               placeholder="Jazz guitar history"
+               maxlength="500" required>
+        <button id="stumble-button" type="submit">Stumble</button>
+    </form>
+
+    <p id="status" role="status" aria-live="polite"></p>
+
+    <article id="recommendation" hidden>
+        <h2 id="page-title"></h2>
+        <p id="page-reason"></p>
+        <a id="page-link" target="_blank" rel="noopener noreferrer">
+            Open page
+        </a>
+        <div>
+            <button id="thumb-up" type="button" aria-pressed="false">👍 Like</button>
+            <button id="thumb-down" type="button" aria-pressed="false">👎 Dislike</button>
+        </div>
+        <p id="rating-status" role="status" aria-live="polite"></p>
+    </article>
+</main>
+
+<script>
+    const form = document.getElementById("stumble-form");
+    const interestInput = document.getElementById("interest");
+    const button = document.getElementById("stumble-button");
+    const statusText = document.getElementById("status");
+    const card = document.getElementById("recommendation");
+    const title = document.getElementById("page-title");
+    const reason = document.getElementById("page-reason");
+    const link = document.getElementById("page-link");
+    const thumbUp = document.getElementById("thumb-up");
+    const thumbDown = document.getElementById("thumb-down");
+    const ratingStatus = document.getElementById("rating-status");
+    let currentRecommendationUrl = null;
+    let busy = false;
+
+    function openWaitingTab() {
+        const tab = window.open("about:blank", "_blank");
+        if (tab) {
+            tab.opener = null;
+            tab.document.title = "Finding your page…";
+            tab.document.body.textContent = "Finding something worth reading…";
+        }
+        return tab;
+    }
+
+    function closeWaitingTab(tab) {
+        if (tab && !tab.closed) tab.close();
+    }
+
+    function setBusy(value, label = "Discovering…") {
+        busy = value;
+        button.disabled = value;
+        interestInput.disabled = value;
+        thumbUp.disabled = value;
+        thumbDown.disabled = value;
+        button.textContent = value ? label : "Stumble";
+    }
+
+    async function requestRecommendation(interest) {
+        const response = await fetch("/api/stumble", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({interest})
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || "The discovery request failed.");
+        }
+        return data;
+    }
+
+    function showRecommendation(data, tab) {
+        const url = new URL(data.url);
+        if (url.protocol !== "https:" || url.username || url.password) {
+            throw new Error("The recommendation returned an invalid URL.");
+        }
+        title.textContent = data.title;
+        reason.textContent = data.reason;
+        link.href = url.href;
+        link.textContent = "Open page — " + url.hostname;
+        currentRecommendationUrl = data.url;
+        thumbUp.setAttribute("aria-pressed", "false");
+        thumbDown.setAttribute("aria-pressed", "false");
+        ratingStatus.textContent = "";
+        card.hidden = false;
+
+        if (tab && !tab.closed) {
+            tab.location.replace(url.href);
+            statusText.textContent = "Recommendation sent to the new tab.";
+        } else {
+            statusText.textContent = "Recommendation ready. Use Open page below.";
+        }
+    }
+
+    async function handleStumble(event) {
+        event.preventDefault();
+        if (busy) return;
+        const interest = interestInput.value.trim();
+        if (!interest) {
+            statusText.textContent = "Enter an interest first.";
+            return;
+        }
+
+        const tab = openWaitingTab();
+        setBusy(true);
+        card.hidden = true;
+        statusText.textContent = "Searching and reading candidate pages…";
+
+        try {
+            const data = await requestRecommendation(interest);
+            if (data.status !== "recommendation") {
+                closeWaitingTab(tab);
+                statusText.textContent = data.message || "No recommendation found.";
+                return;
+            }
+            showRecommendation(data, tab);
+        } catch (error) {
+            closeWaitingTab(tab);
+            statusText.textContent = error.message || "Something went wrong.";
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    form.addEventListener("submit", handleStumble);
+    async function saveVote(value) {
+        if (busy || !currentRecommendationUrl) return;
+        const ratedUrl = currentRecommendationUrl;
+        setBusy(true, "Saving rating…");
+        ratingStatus.textContent = "Saving…";
+
+        try {
+            const response = await fetch("/api/rating", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({url: ratedUrl, value})
+            });
+            const data = await response.json();
+            if (!response.ok || data.status !== "rated") {
+                throw new Error(data.message || "Could not save rating.");
+            }
+            thumbUp.setAttribute("aria-pressed", String(data.value === 1));
+            thumbDown.setAttribute("aria-pressed", String(data.value === -1));
+            ratingStatus.textContent = data.value === 1
+                ? "Thumbs up saved."
+                : "Thumbs down saved.";
+        } catch (error) {
+            ratingStatus.textContent = error.message || "Could not save rating.";
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    thumbUp.addEventListener("click", () => saveVote(1));
+    thumbDown.addEventListener("click", () => saveVote(-1));
+</script>
+</body>
+</html>
