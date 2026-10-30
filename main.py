@@ -3,6 +3,8 @@ from ollama import Client
 from web_reader import read_page
 from skill_loader import build_skill_catalog, load_skill
 from skill_selector import select_skill
+import json
+from web_search import search_web
 
 project_dir = Path(__file__).resolve().parent
 catalog = build_skill_catalog(project_dir / "skills")
@@ -23,7 +25,12 @@ print("Selected skill:", selected_id)
 skill_path = project_dir / "skills" / selected_id / "SKILL.md"
 skill_text = load_skill(skill_path)
 
-selected_tools = [read_page] if selected_id == "web_discovery" else []
+available_tools = (
+    {"search_web": search_web, "read_page": read_page}
+    if selected_id == "web_discovery"
+    else {}
+)
+selected_tools = list(available_tools.values())
 system_prompt = (
         "You are a helpful assistant. "
         "Use only the tools provided in this session. "
