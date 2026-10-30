@@ -32,10 +32,27 @@ def read_page(url: str) -> str:
         return "Error: URL must use HTTPS on an allowed website."
 
     try:
-        response = requests.get(url, timeout=10, allow_redirects=False)
+        response = requests.get(
+            url,
+            headers={
+                "User-Agent": (
+                    "NemotronDiscovery/0.1 "
+                    "(https://github.com/Bropaine)"
+                )
+            },
+            timeout=10,
+            allow_redirects=False,
+        )
         if 300 <= response.status_code < 400:
             return "Error: redirects are not allowed in this first test."
         response.raise_for_status()
+    except requests.HTTPError as error:
+        status = (
+            error.response.status_code
+            if error.response is not None
+            else "unknown"
+        )
+        return f"Error: page request returned HTTP {status}."
     except requests.RequestException as error:
         return f"Error: could not read page ({type(error).__name__})."
 
