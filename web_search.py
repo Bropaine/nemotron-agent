@@ -1,4 +1,22 @@
 from ddgs import DDGS
+from discovery_store import initialize_database, get_recommended_urls
+from urllib.parse import urlsplit
+from web_reader import ALLOWED_HOSTS
+
+
+def is_discovery_url(url: str) -> bool:
+    try:
+        parts = urlsplit(url)
+        return (
+                parts.scheme == "https"
+                and parts.hostname in ALLOWED_HOSTS
+                and parts.hostname != "example.com"
+                and parts.port in (None, 443)
+                and parts.username is None
+                and parts.password is None
+        )
+    except ValueError:
+        return False
 
 
 def search_web(query: str) -> dict:
@@ -15,7 +33,8 @@ def search_web(query: str) -> dict:
         results = DDGS().text(query, max_results=5)
     except Exception as error:
         return {"error": f"Search failed ({type(error).__name__})."}
-
+    initialize_database()
+    seen_urls = get_recommended_urls()
     return {
         "results": [
             {
@@ -24,6 +43,8 @@ def search_web(query: str) -> dict:
                 "snippet": item.get("body", "")[:500],
             }
             for item in results
+            if is_discovery_url(item.get("href", ""))
+            and item.get("href", "") not in seen_urls
         ]
     }
 
