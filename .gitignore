@@ -30,7 +30,7 @@ dist/
 *.egg-info/
 
 # Local agent data and logs
- data/
+ /data/
 *.log
 
 # Operating-system files

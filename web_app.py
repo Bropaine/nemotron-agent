@@ -4,7 +4,7 @@ from flask import Flask, jsonify, render_template, request
 
 from agent import run_agent
 
-from discovery_store import initialize_database, save_rating
+from discovery_store import initialize_database, save_rating, validate_feedback
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 8192
@@ -63,7 +63,7 @@ def stumble():
         agent_lock.release()
 
 
-def get_rating_input(data) -> tuple[str, int]:
+def get_rating_input(data) -> tuple[str, int, str, str]:
     if not isinstance(data, dict):
         raise ValueError("Send a JSON object containing url and value.")
     url = data.get("url")
@@ -72,7 +72,12 @@ def get_rating_input(data) -> tuple[str, int]:
         raise ValueError("A recommendation URL is required.")
     if type(value) is not int or value not in (-1, 1):
         raise ValueError("Rating must be +1 or -1.")
-    return url.strip(), value
+
+    reason, note = validate_feedback(
+        data.get("feedback_reason", ""),
+        data.get("feedback_note", ""),
+    )
+    return url.strip(), value, reason, note
 
 
 @app.post("/api/rating")
@@ -84,20 +89,26 @@ def rate_recommendation():
         return jsonify(status="error", message="Send application/json."), 415
 
     try:
-        url, value = get_rating_input(request.get_json(silent=True))
+        url, value, reason, note = get_rating_input(request.get_json(silent=True))
     except ValueError as error:
         return jsonify(status="error", message=str(error)), 400
 
     try:
         initialize_database()
-        saved = save_rating(url, value)
+        saved = save_rating(url, value, reason, note)
     except Exception:
         app.logger.exception("Saving rating failed")
         return jsonify(status="error", message="Could not save rating."), 500
 
     if not saved:
         return jsonify(status="error", message="Recommendation not found."), 404
-    return jsonify(status="rated", url=url, value=value)
+    return jsonify(
+        status="rated",
+        url=url,
+        value=value,
+        feedback_reason=reason,
+        feedback_note=note,
+        )
 
 
 if __name__ == "__main__":

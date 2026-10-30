@@ -27,6 +27,25 @@
             Open page
         </a>
         <div>
+            <label for="feedback-reason">What could be better? (optional)</label>
+            <select id="feedback-reason">
+                <option value="">No reason selected</option>
+                <option value="too_promotional">Too promotional</option>
+                <option value="wrong_topic">Wrong topic</option>
+                <option value="too_basic">Too basic</option>
+                <option value="too_advanced">Too advanced</option>
+                <option value="untrustworthy">Untrustworthy</option>
+                <option value="outdated">Outdated</option>
+                <option value="already_familiar">Already familiar</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div>
+            <label for="feedback-note">Why did you like or dislike it? (optional)</label>
+            <textarea id="feedback-note" maxlength="500" rows="3"></textarea>
+        </div>
+        <p>Click either thumb to save your vote and explanation. Click again to update it.</p>
+        <div>
             <button id="thumb-up" type="button" aria-pressed="false">👍 Like</button>
             <button id="thumb-down" type="button" aria-pressed="false">👎 Dislike</button>
         </div>
@@ -35,6 +54,8 @@
 </main>
 
 <script>
+    const feedbackReason = document.getElementById("feedback-reason");
+    const feedbackNote = document.getElementById("feedback-note");
     const form = document.getElementById("stumble-form");
     const interestInput = document.getElementById("interest");
     const button = document.getElementById("stumble-button");
@@ -69,6 +90,8 @@
         interestInput.disabled = value;
         thumbUp.disabled = value;
         thumbDown.disabled = value;
+        feedbackReason.disabled = value;
+        feedbackNote.disabled = value;
         button.textContent = value ? label : "Stumble";
     }
 
@@ -98,6 +121,8 @@
         thumbUp.setAttribute("aria-pressed", "false");
         thumbDown.setAttribute("aria-pressed", "false");
         ratingStatus.textContent = "";
+        feedbackReason.value = "";
+        feedbackNote.value = "";
         card.hidden = false;
 
         if (tab && !tab.closed) {
@@ -149,12 +174,23 @@
             const response = await fetch("/api/rating", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({url: ratedUrl, value})
+                body: JSON.stringify({
+                    url: ratedUrl,
+                    value,
+                    feedback_reason: feedbackReason.value,
+                    feedback_note: feedbackNote.value.trim()
+                })
             });
             const data = await response.json();
             if (!response.ok || data.status !== "rated") {
                 throw new Error(data.message || "Could not save rating.");
             }
+            function markFeedbackUnsaved() {
+                ratingStatus.textContent = "Changes not saved. Click a thumb to save.";
+            }
+
+            feedbackReason.addEventListener("change", markFeedbackUnsaved);
+            feedbackNote.addEventListener("input", markFeedbackUnsaved);
             thumbUp.setAttribute("aria-pressed", String(data.value === 1));
             thumbDown.setAttribute("aria-pressed", String(data.value === -1));
             ratingStatus.textContent = data.value === 1
