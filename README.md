@@ -12,7 +12,7 @@ from your own machine (`http://localhost:11434`).
 - **Web discovery** — bundled `web_discovery` skill backed by web search
   (`web_search.py`) and page reading (`web_reader.py`) tools.
 - **Summarization** — bundled `summarize_text` skill.
-- **Discovery app** *(on the `stumble-upon` branch)* — a StumbleUpon-style
+- **Discovery app** — a StumbleUpon-style
   recommendation workflow: the agent surfaces web content as cards in a
   Flask UI, you rate with like/dislike plus reasons and notes, and a
   bounded recommendation engine learns from your ratings. Discovery
@@ -25,7 +25,7 @@ from your own machine (`http://localhost:11434`).
 - `web_search.py` / `web_reader.py` — web tools
 - `skills/` — markdown skill definitions
 - `agent.py`, `web_app.py`, `discovery_store.py`, `recommendation.py`
-  *(stumble-upon branch)* — discovery agent, Flask app, local store,
+  — discovery agent, Flask app, local store,
   recommendation logic
 - `tests/` — unit tests for skill selection, web reading, search
   filtering, ratings, and recommendation relevance
