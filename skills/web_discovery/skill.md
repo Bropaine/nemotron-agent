@@ -10,4 +10,3 @@ Instructions:
 - - Search snippets help choose candidates but do not replace reading them.
 - Base your recommendation reason only on content returned by read_page.
 - If page text is truncated before the relevant topic, read another candidate. Do not claim to have verified the missing section.
-- For this prototype, readable hosts are docs.python.org, en.wikipedia.org, and example.com. Target searches accordingly.
